@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Die Calculator — Access</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(135deg,#0f2942 0%,#1a3a5c 100%);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    padding:1rem;
+  }
+  .card{
+    background:#fff;border-radius:20px;padding:2.2rem 2rem;
+    width:100%;max-width:380px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.4);
+  }
+  .logo{text-align:center;margin-bottom:1.8rem}
+  .logo .icon{font-size:48px;margin-bottom:.5rem}
+  .logo h1{font-size:22px;font-weight:800;color:#0f2942}
+  .logo p{font-size:13px;color:#94a3b8;margin-top:4px}
+  label{display:block;font-size:12px;font-weight:700;color:#475569;
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:6px}
+  input[type=text], input[type=password]{
+    width:100%;padding:13px 15px;border:2px solid #e2e8f0;border-radius:10px;
+    font-size:17px;font-weight:600;color:#0f2942;letter-spacing:2px;
+    outline:none;transition:border .2s;
+  }
+  input:focus{border-color:#185FA5;box-shadow:0 0 0 3px rgba(24,95,165,.12)}
+  .field{margin-bottom:1.2rem}
+  .btn{
+    width:100%;padding:14px;background:#185FA5;color:#fff;border:none;
+    border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;
+    transition:background .2s;margin-top:.4rem;
+  }
+  .btn:hover{background:#0f4a8a}
+  .btn:disabled{background:#94a3b8;cursor:not-allowed}
+  .msg{
+    margin-top:1rem;padding:10px 14px;border-radius:8px;
+    font-size:13px;font-weight:600;text-align:center;display:none;
+  }
+  .msg.err{background:#fee2e2;color:#dc2626}
+  .msg.ok {background:#ecfdf5;color:#16a34a}
+  .footer{text-align:center;margin-top:1.4rem;font-size:11px;color:#cbd5e1}
+  .spinner{display:inline-block;width:16px;height:16px;border:3px solid rgba(255,255,255,.3);
+    border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="icon">⚙️</div>
+    <h1>Die Calculator</h1>
+    <p>Enter your access key to continue</p>
+  </div>
+
+  <div class="field">
+    <label>Access Key</label>
+    <input type="text" id="keyInput" placeholder="DK-XXXX-XXXX-XXX"
+      autocomplete="off" autocorrect="off" spellcheck="false">
+  </div>
+
+  <button class="btn" id="loginBtn" onclick="doLogin()">Unlock Access</button>
+  <div class="msg" id="msg"></div>
+  <div class="footer">Each key works on one device only</div>
+</div>
+
+<script>
+// ── Device fingerprint — collected silently, never shown to user ──────────────
+async function getFingerprint() {
+  const components = [
+    navigator.userAgent,
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    screen.colorDepth,
+    new Date().getTimezoneOffset(),
+    navigator.hardwareConcurrency || '',
+    navigator.deviceMemory || '',
+    navigator.platform || '',
+  ];
+
+  // Canvas fingerprint
+  try {
+    const c = document.createElement('canvas');
+    const ctx = c.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#185FA5';
+    ctx.fillRect(0, 0, 100, 30);
+    ctx.fillStyle = '#fff';
+    ctx.fillText('DieCalc🔧', 2, 4);
+    components.push(c.toDataURL());
+  } catch(e) {}
+
+  // WebGL
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    if (gl) {
+      const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+      if (dbg) components.push(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL));
+    }
+  } catch(e) {}
+
+  return components.join('|||');
+}
+
+async function doLogin() {
+  const key = document.getElementById('keyInput').value.trim().toUpperCase();
+  const btn = document.getElementById('loginBtn');
+  const msg = document.getElementById('msg');
+
+  if (!key) { showMsg('Please enter your access key', 'err'); return; }
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Verifying…';
+  msg.style.display = 'none';
+
+  const fingerprint = await getFingerprint();
+
+  try {
+    const res  = await fetch('/api/login', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ key, fingerprint })
+    });
+    const data = await res.json();
+
+    if (data.ok) {
+      showMsg('✓ ' + data.msg, 'ok');
+      setTimeout(() => { window.location.href = '/app'; }, 800);
+    } else {
+      showMsg('✗ ' + data.msg, 'err');
+      btn.disabled = false;
+      btn.innerHTML = 'Unlock Access';
+    }
+  } catch(e) {
+    showMsg('Connection error. Try again.', 'err');
+    btn.disabled = false;
+    btn.innerHTML = 'Unlock Access';
+  }
+}
+
+function showMsg(text, type) {
+  const m = document.getElementById('msg');
+  m.textContent = text;
+  m.className = 'msg ' + type;
+  m.style.display = 'block';
+}
+
+// Allow Enter key
+document.addEventListener('keydown', e => { if(e.key==='Enter') doLogin(); });
+
+// Check if already authed
+fetch('/api/check').then(r=>r.json()).then(d=>{ if(d.authed) window.location.href='/app'; });
+</script>
+</body>
+</html>
