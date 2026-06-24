@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Die Calculator</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    background:#f1f5f9;min-height:100vh;color:#1a1a1a}
+  .topbar{background:#0f2942;color:#fff;padding:1rem 1.5rem;
+    display:flex;justify-content:space-between;align-items:center}
+  .topbar h1{font-size:18px;font-weight:800}
+  .topbar span{font-size:13px;color:#8fb3d9}
+  .logoutBtn{background:#dc2626;color:#fff;border:none;padding:7px 14px;
+    border-radius:7px;font-weight:700;font-size:13px;cursor:pointer}
+  .container{max-width:900px;margin:0 auto;padding:1.5rem 1rem}
+
+  /* Login overlay */
+  #loginScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f2942,#1a3a5c);
+    display:flex;align-items:center;justify-content:center;z-index:100}
+  .loginCard{background:#fff;border-radius:16px;padding:2rem;width:100%;max-width:340px;
+    box-shadow:0 20px 60px rgba(0,0,0,.4);text-align:center}
+  .loginCard h2{margin-bottom:1.2rem;font-size:20px;color:#0f2942}
+  .loginCard input{width:100%;padding:12px;border:2px solid #e2e8f0;border-radius:9px;
+    font-size:15px;margin-bottom:1rem;outline:none}
+  .loginCard input:focus{border-color:#185FA5}
+  .loginCard button{width:100%;padding:12px;background:#185FA5;color:#fff;
+    border:none;border-radius:9px;font-weight:800;font-size:15px;cursor:pointer}
+  .loginCard .err{color:#dc2626;font-size:13px;margin-top:.5rem}
+
+  /* Cards */
+  .card{background:#fff;border-radius:14px;padding:1.4rem;margin-bottom:1.2rem;
+    box-shadow:0 3px 12px rgba(0,0,0,.08)}
+  .card h2{font-size:15px;font-weight:800;color:#0f2942;margin-bottom:1rem;
+    padding-bottom:.7rem;border-bottom:2px solid #f1f5f9}
+  .create-row{display:flex;gap:.7rem;flex-wrap:wrap}
+  .create-row input{flex:1;min-width:160px;padding:10px 13px;border:2px solid #e2e8f0;
+    border-radius:9px;font-size:14px;outline:none}
+  .create-row input:focus{border-color:#185FA5}
+  .btn-green{background:#16a34a;color:#fff;border:none;padding:10px 20px;
+    border-radius:9px;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap}
+  .btn-green:hover{background:#15803d}
+
+  /* Key table */
+  .key-list{display:flex;flex-direction:column;gap:.8rem}
+  .key-row{border:1.5px solid #e2e8f0;border-radius:10px;padding:1rem;
+    display:flex;flex-wrap:wrap;gap:.6rem;align-items:center}
+  .key-row.revoked{border-color:#fca5a5;background:#fff5f5;opacity:.8}
+  .key-badge{font-family:monospace;font-size:14px;font-weight:700;color:#0f2942;
+    background:#f0f7ff;padding:5px 10px;border-radius:6px;letter-spacing:1px;
+    cursor:pointer;flex:1;min-width:200px}
+  .key-badge:hover{background:#dbeafe}
+  .key-label{font-size:13px;color:#475569;font-weight:600;min-width:80px}
+  .meta{font-size:11px;color:#94a3b8;flex:1;min-width:150px}
+  .tag{display:inline-block;padding:2px 8px;border-radius:5px;font-size:11px;font-weight:700}
+  .tag.active{background:#dcfce7;color:#16a34a}
+  .tag.revoked{background:#fee2e2;color:#dc2626}
+  .tag.bound{background:#fef9c3;color:#92400e}
+  .tag.unbound{background:#f1f5f9;color:#64748b}
+  .actions{display:flex;gap:.4rem;flex-wrap:wrap}
+  .btn-sm{padding:5px 11px;border:none;border-radius:6px;font-size:12px;
+    font-weight:700;cursor:pointer}
+  .btn-revoke  {background:#fee2e2;color:#dc2626}
+  .btn-activate{background:#dcfce7;color:#16a34a}
+  .btn-unbind  {background:#fef9c3;color:#92400e}
+  .btn-delete  {background:#f1f5f9;color:#64748b}
+  .btn-sm:hover{filter:brightness(.92)}
+  .toast{position:fixed;bottom:1.5rem;right:1.5rem;background:#0f2942;color:#fff;
+    padding:10px 18px;border-radius:9px;font-size:14px;font-weight:700;
+    opacity:0;transition:opacity .3s;pointer-events:none;z-index:999}
+  .toast.show{opacity:1}
+  .new-key-box{background:#ecfdf5;border:2px solid #86efac;border-radius:9px;
+    padding:.9rem 1.1rem;margin-top:1rem;display:none}
+  .new-key-box p{font-size:13px;color:#15803d;font-weight:700;margin-bottom:.3rem}
+  .new-key-box code{font-size:18px;font-weight:800;letter-spacing:2px;color:#0f2942;
+    cursor:pointer;background:#fff;padding:4px 10px;border-radius:5px}
+  .empty{text-align:center;color:#94a3b8;font-size:14px;padding:2rem 0}
+  #refreshBtn{background:#185FA5;color:#fff;border:none;padding:7px 14px;
+    border-radius:7px;font-weight:700;font-size:13px;cursor:pointer;float:right;margin-top:-2rem}
+</style>
+</head>
+<body>
+
+<!-- Admin login overlay -->
+<div id="loginScreen">
+  <div class="loginCard">
+    <h2>⚙️ Admin Panel</h2>
+    <input type="password" id="adminPwd" placeholder="Admin password" onkeydown="if(event.key==='Enter')adminLogin()">
+    <button onclick="adminLogin()">Sign In</button>
+    <p class="err" id="adminErr"></p>
+  </div>
+</div>
+
+<div id="mainApp" style="display:none">
+  <div class="topbar">
+    <h1>⚙️ Die Calculator — Admin</h1>
+    <div style="display:flex;align-items:center;gap:1rem">
+      <span id="keyCount">0 keys</span>
+      <button class="logoutBtn" onclick="adminLogout()">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Create new key -->
+    <div class="card">
+      <h2>➕ Create New Access Key</h2>
+      <div class="create-row">
+        <input type="text" id="newLabel" placeholder="Person's name (e.g. Rahul)" maxlength="20">
+        <button class="btn-green" onclick="createKey()">Generate Key</button>
+      </div>
+      <div class="new-key-box" id="newKeyBox">
+        <p>✓ New key created — tap to copy, share with user:</p>
+        <code id="newKeyVal" onclick="copyKey(this)"></code>
+        <p style="margin-top:.4rem;font-size:11px;color:#64748b">Key binds to the FIRST device that uses it</p>
+      </div>
+    </div>
+
+    <!-- Key list -->
+    <div class="card">
+      <h2>🔑 All Access Keys
+        <button id="refreshBtn" onclick="loadKeys()">↻ Refresh</button>
+      </h2>
+      <div class="key-list" id="keyList">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let allKeys = {};
+
+async function adminLogin() {
+  const pwd = document.getElementById('adminPwd').value;
+  const res = await fetch('/api/admin/login', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({password: pwd})
+  });
+  const d = await res.json();
+  if (d.ok) {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('mainApp').style.display = 'block';
+    loadKeys();
+  } else {
+    document.getElementById('adminErr').textContent = 'Wrong password';
+  }
+}
+
+function adminLogout() {
+  fetch('/api/logout',{method:'POST'}).then(()=>window.location.reload());
+}
+
+async function loadKeys() {
+  const res = await fetch('/api/admin/keys');
+  const d   = await res.json();
+  if (!d.ok) return;
+  allKeys = d.keys;
+  renderKeys();
+}
+
+function renderKeys() {
+  const list = document.getElementById('keyList');
+  const entries = Object.entries(allKeys);
+  document.getElementById('keyCount').textContent = entries.length + ' key' + (entries.length!==1?'s':'');
+
+  if (!entries.length) { list.innerHTML='<div class="empty">No keys yet — create one above</div>'; return; }
+
+  list.innerHTML = entries.sort((a,b)=>a[1].createdAt>b[1].createdAt?-1:1).map(([key,e])=>`
+    <div class="key-row ${e.active?'':'revoked'}">
+      <div class="key-label">${e.label}</div>
+      <div class="key-badge" onclick="copyText('${key}')" title="Tap to copy">${key}</div>
+      <div class="meta">
+        <span class="tag ${e.active?'active':'revoked'}">${e.active?'ACTIVE':'REVOKED'}</span>
+        <span class="tag ${e.deviceHash?'bound':'unbound'}">${e.deviceHash?'DEVICE BOUND':'NOT USED YET'}</span>
+        <br><span style="margin-top:3px;display:inline-block">
+          ${e.firstUsed ? '🕐 First used: '+fmtDate(e.firstUsed) : 'Never used'} &nbsp;·&nbsp;
+          ${e.accessCount ? e.accessCount+' logins' : ''} &nbsp;
+          ${e.rejectedAttempts ? '<span style="color:#dc2626">⚠️ '+e.rejectedAttempts+' rejected</span>' : ''}
+        </span>
+      </div>
+      <div class="actions">
+        ${e.active
+          ? `<button class="btn-sm btn-revoke" onclick="revokeKey('${key}')">Revoke</button>`
+          : `<button class="btn-sm btn-activate" onclick="activateKey('${key}')">Reactivate</button>`}
+        ${e.deviceHash
+          ? `<button class="btn-sm btn-unbind" onclick="unbindKey('${key}')">Unbind Device</button>`
+          : ''}
+        <button class="btn-sm btn-delete" onclick="deleteKey('${key}')">Delete</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function createKey() {
+  const label = document.getElementById('newLabel').value.trim();
+  if (!label) { toast('Enter a name first'); return; }
+  const res = await fetch('/api/admin/create',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({label})
+  });
+  const d = await res.json();
+  if (d.ok) {
+    document.getElementById('newLabel').value='';
+    document.getElementById('newKeyVal').textContent = d.key;
+    document.getElementById('newKeyBox').style.display='block';
+    copyText(d.key);
+    toast('Key created & copied!');
+    loadKeys();
+  }
+}
+
+async function revokeKey(key) {
+  if (!confirm('Revoke this key? User will be locked out immediately.')) return;
+  await fetch('/api/admin/revoke',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+  toast('Key revoked'); loadKeys();
+}
+async function activateKey(key) {
+  await fetch('/api/admin/reactivate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+  toast('Key reactivated'); loadKeys();
+}
+async function unbindKey(key) {
+  if (!confirm('Remove device binding? The key can then be used on any new device once.')) return;
+  await fetch('/api/admin/unbind',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+  toast('Device unbound — key can now register a new device'); loadKeys();
+}
+async function deleteKey(key) {
+  if (!confirm('Permanently delete this key? This cannot be undone.')) return;
+  await fetch('/api/admin/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+  toast('Key deleted'); loadKeys();
+}
+
+function copyText(text) {
+  navigator.clipboard.writeText(text).then(()=>toast('Copied: '+text));
+}
+function copyKey(el) { copyText(el.textContent); }
+function fmtDate(iso) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('en-IN',{dateStyle:'medium',timeStyle:'short'});
+}
+function toast(msg) {
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+document.getElementById('adminPwd').addEventListener('keydown',e=>{if(e.key==='Enter')adminLogin();});
+</script>
+</body>
+</html>

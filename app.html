@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Die Calculator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #0f2942 0%, #1a3a5c 100%);
+    min-height: 100vh;
+    padding: 1rem 1rem 120px;
+    color: #e8eef5;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; }
+  h1 { font-size: 22px; font-weight: 800; text-align: center; margin-bottom: 0.2rem; color: #fff; }
+  .sub { text-align: center; font-size: 13px; color: #8fb3d9; margin-bottom: 1.1rem; }
+
+  /* Cards */
+  .card {
+    background: #fff; border-radius: 14px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.22);
+    padding: 1.1rem; margin-bottom: 1rem; color: #1a1a1a;
+  }
+
+  /* Diagram */
+  .diagram-card { background:#fff; border-radius:14px; padding:1rem; box-shadow:0 6px 24px rgba(0,0,0,0.22); margin-bottom:1rem; }
+  .diagram-card h3 { font-size:13px; font-weight:800; color:#475569; text-transform:uppercase; letter-spacing:.4px; margin-bottom:.7rem; text-align:center; }
+
+  /* Banner */
+  .lookup-banner {
+    display:flex; align-items:center; gap:12px; background:#f0f7ff;
+    border:1.5px solid #b5d4f4; border-radius:9px; padding:.8rem 1rem; margin-top:1rem;
+  }
+  .lookup-banner .tag {
+    background:#185FA5; color:#fff; font-weight:800; font-size:18px;
+    padding:7px 16px; border-radius:8px; font-family:monospace; min-width:70px; text-align:center; white-space:nowrap;
+  }
+  .lookup-banner .tag.na { background:#94a3b8; }
+  .lookup-banner .txt { font-size:13px; color:#475569; }
+  .lookup-banner .txt b { color:#0f2942; }
+
+  /* Input */
+  .input-row { display:flex; gap:.6rem; align-items:end; flex-wrap:wrap; }
+  .input-group { flex:1; min-width:140px; }
+  label { display:block; font-size:12px; font-weight:700; color:#475569; margin-bottom:6px; text-transform:uppercase; letter-spacing:.3px; }
+  input[type=number] {
+    width:100%; padding:11px 13px; border:2px solid #cbd5e1; border-radius:9px;
+    font-size:20px; font-weight:700; color:#0f2942; outline:none; transition:border .2s;
+  }
+  input[type=number]:focus { border-color:#185FA5; box-shadow:0 0 0 3px rgba(24,95,165,0.12); }
+
+  /* Auto-factor suggestion pill */
+  .factor-suggest {
+    margin-top:.7rem; padding:.5rem .9rem; background:#eef6ff; border:1.5px solid #93c5fd;
+    border-radius:8px; font-size:13px; color:#185FA5; font-weight:700; display:none;
+  }
+  .factor-suggest span { color:#0f2942; }
+
+  /* Results grid — compact 3-col */
+  .results-title { font-size:12px; font-weight:800; color:#8fb3d9; text-transform:uppercase; letter-spacing:.5px; margin:.9rem 0 .5rem 2px; }
+  .results-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.55rem; }
+  .result-card {
+    background:#fff; border-radius:10px; padding:.7rem .55rem; text-align:center;
+    box-shadow:0 3px 12px rgba(0,0,0,0.15); position:relative; overflow:hidden;
+  }
+  .result-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:#185FA5; }
+  .result-card .rlabel {
+    font-size:10px; font-weight:800; color:#64748b; text-transform:uppercase;
+    letter-spacing:.2px; margin-bottom:5px; line-height:1.3; min-height:26px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .result-card .rvalue { font-size:26px; font-weight:800; color:#185FA5; font-family:'SF Mono',Consolas,monospace; line-height:1; }
+  .result-card .runit { font-size:11px; color:#94a3b8; font-weight:700; }
+  .result-card .rtol { font-size:11px; color:#94a3b8; font-weight:700; margin-top:2px; }
+  .result-card .rrange { font-size:10.5px; color:#b0bdc9; margin-top:2px; font-family:monospace; }
+  .result-card .closest-hint { font-size:10px; color:#b45309; font-weight:700; margin-top:3px; line-height:1.3; }
+
+  /* Sky blue accent for Design Ext Die card */
+  .result-card.sky-blue::before { background: #0ea5e9; }
+  .result-card.sky-blue .rvalue { color: #0284c7; }
+  .result-card.sky-blue .rlabel { color: #0369a1; }
+
+  .result-card.matched { background:#ecfdf5; }
+  .result-card.matched::before { background:#16a34a; }
+  .result-card.matched .rvalue { color:#16a34a; }
+
+  .result-card.closest { background:#fffbeb; }
+  .result-card.closest::before { background:#d97706; }
+  .result-card.closest .rvalue { color:#d97706; }
+
+  /* Lookup table */
+  details { margin-top:.9rem; }
+  summary { cursor:pointer; font-size:13px; color:#185FA5; font-weight:700; padding:5px 0; }
+  table.lookup-table { width:100%; border-collapse:collapse; margin-top:7px; font-size:13px; }
+  table.lookup-table th, table.lookup-table td { border:1px solid #e2e8f0; padding:6px 8px; text-align:center; }
+  table.lookup-table th { background:#f1f5f9; font-weight:700; color:#475569; }
+  table.lookup-table input { width:100%; border:none; text-align:center; font-size:13px; padding:4px; background:transparent; }
+  table.lookup-table input:focus { background:#f0f7ff; outline:1px solid #185FA5; border-radius:4px; }
+  .table-actions { display:flex; gap:8px; margin-top:7px; }
+  .table-actions button { flex:1; padding:8px; border:none; border-radius:8px; font-size:13px; font-weight:700; cursor:pointer; background:#185FA5; color:#fff; }
+  .table-actions button.secondary { background:#e2e8f0; color:#475569; }
+
+  /* Sticky factor bar */
+  .factor-bar {
+    position:fixed; bottom:0; left:0; right:0;
+    background:#0f2942; border-top:2px solid #185FA5;
+    padding:8px 1.2rem 12px; z-index:100;
+    box-shadow:0 -4px 20px rgba(0,0,0,0.35);
+  }
+  .factor-bar-header { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:5px; }
+  .factor-bar-header .name { font-size:12px; font-weight:700; color:#8fb3d9; text-transform:uppercase; letter-spacing:.3px; }
+  .factor-bar-header .val { font-size:22px; font-weight:800; color:#fff; font-family:'SF Mono',Consolas,monospace; }
+  .factor-bar-header .auto-badge {
+    font-size:10px; background:#16a34a; color:#fff; padding:2px 7px; border-radius:6px;
+    font-weight:700; margin-left:6px; display:none;
+  }
+  input[type=range]#factorSlider {
+    width:100%; height:32px; -webkit-appearance:none; appearance:none; background:transparent; cursor:pointer;
+  }
+  input[type=range]#factorSlider::-webkit-slider-runnable-track { height:9px; border-radius:6px; background:linear-gradient(90deg,#b9d8f4,#185FA5); }
+  input[type=range]#factorSlider::-webkit-slider-thumb { -webkit-appearance:none; width:32px; height:32px; border-radius:50%; background:#fff; border:5px solid #185FA5; margin-top:-12px; box-shadow:0 2px 10px rgba(0,0,0,0.4); }
+  input[type=range]#factorSlider::-moz-range-track { height:9px; border-radius:6px; background:linear-gradient(90deg,#b9d8f4,#185FA5); }
+  input[type=range]#factorSlider::-moz-range-thumb { width:32px; height:32px; border-radius:50%; background:#fff; border:5px solid #185FA5; box-shadow:0 2px 10px rgba(0,0,0,0.4); }
+  .factor-range-labels { display:flex; justify-content:space-between; font-size:10px; color:#4a7aab; margin-top:1px; font-family:monospace; }
+
+  /* ── Login Gate ────────────────────────────────────────────────────── */
+  #loginGate {
+    position:fixed; inset:0; background:linear-gradient(135deg,#0f2942,#1a3a5c);
+    display:flex; align-items:center; justify-content:center;
+    z-index:9999; padding:1.5rem;
+  }
+  .login-card {
+    background:#fff; border-radius:18px; padding:2rem 1.8rem;
+    width:100%; max-width:360px; color:#0f2942;
+    box-shadow:0 12px 48px rgba(0,0,0,0.4);
+  }
+  .login-card .logo { text-align:center; font-size:36px; margin-bottom:.5rem; }
+  .login-card h2 { text-align:center; font-size:19px; font-weight:800; margin-bottom:4px; }
+  .login-card .tagline { text-align:center; font-size:12px; color:#94a3b8; margin-bottom:1.5rem; }
+  .login-card label { font-size:12px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:.3px; display:block; margin-bottom:6px; }
+  .login-card input {
+    width:100%; padding:13px 15px; border:2px solid #e2e8f0; border-radius:10px;
+    font-size:18px; font-weight:700; letter-spacing:3px; text-transform:uppercase;
+    color:#0f2942; outline:none; text-align:center; margin-bottom:14px;
+    font-family:'SF Mono',Consolas,monospace;
+  }
+  .login-card input:focus { border-color:#185FA5; box-shadow:0 0 0 3px rgba(24,95,165,.12); }
+  .login-card .login-btn {
+    width:100%; padding:13px; border:none; border-radius:10px;
+    background:#185FA5; color:#fff; font-size:15px; font-weight:800;
+    cursor:pointer; transition:background .2s;
+  }
+  .login-card .login-btn:hover { background:#1a4f80; }
+  .login-card .login-btn:disabled { background:#94a3b8; cursor:not-allowed; }
+  .login-card .login-err { font-size:13px; color:#dc2626; font-weight:600; text-align:center; margin-top:10px; min-height:18px; }
+  .login-card .login-hint { font-size:11px; color:#94a3b8; text-align:center; margin-top:12px; line-height:1.5; }
+  #appRoot { display:none; }
+</style>
+</head>
+<body><div style="position:fixed;top:0;left:0;right:0;background:#0f2942;padding:6px 1rem;
+  display:flex;justify-content:space-between;align-items:center;z-index:200;
+  box-shadow:0 2px 8px rgba(0,0,0,0.3)">
+  <span style="color:#8fb3d9;font-size:12px;font-weight:700;">⚙️ DIE CALCULATOR</span>
+  <button onclick="doLogout()" style="background:#dc2626;color:#fff;border:none;padding:5px 12px;
+    border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Sign Out</button>
+</div>
+<div style="height:34px"></div>
+
+
+<!-- ── LOGIN GATE ────────────────────────────────────────────── -->
+<div id="loginGate">
+  <div class="login-card">
+    <div class="logo">🔧</div>
+    <h2>Die Calculator</h2>
+    <div class="tagline">Enter your access key to continue</div>
+    <label for="accessKey">Access Key</label>
+    <input type="text" id="accessKey" placeholder="XXX-XXXX" maxlength="8"
+      autocomplete="off" autocorrect="off" spellcheck="false"
+      oninput="this.value=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'').replace(/^(.{3})(.+)/,'$1-$2').slice(0,8)"
+      onkeydown="if(event.key==='Enter')tryLogin()">
+    <button class="login-btn" id="loginBtn" onclick="tryLogin()">Unlock</button>
+    <div class="login-err" id="loginErr"></div>
+    <div class="login-hint">Your key is unique to you and binds to this device on first use.</div>
+  </div>
+</div>
+
+<!-- ── APP (shown after login) ─────────────────────────────── -->
+<div id="appRoot">
+<div class="wrap">
+  <h1>Die Calculator</h1>
+  <div class="sub">Cavity-based die dimension calculator</div>
+
+  <!-- Diagram -->
+  <div class="diagram-card">
+    <h3>Reference Diagram</h3>
+    <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block;">
+      <circle cx="120" cy="150" r="88" fill="none" stroke="#185FA5" stroke-width="6"/>
+      <line x1="32" y1="150" x2="208" y2="150" stroke="#185FA5" stroke-width="3" stroke-dasharray="5,4"/>
+      <text x="120" y="48" text-anchor="middle" font-size="14" fill="#475569" font-weight="800">CAVITY</text>
+      <text x="120" y="158" text-anchor="middle" font-size="28" fill="#0f2942" font-weight="800" id="svg_cd_self">—</text>
+      <text x="120" y="268" text-anchor="middle" font-size="14" fill="#0f2942" font-weight="800">⌀ CD</text>
+      <path d="M 215 150 L 272 150" stroke="#94a3b8" stroke-width="4" marker-end="url(#arrow)"/>
+      <circle cx="438" cy="150" r="80" fill="none" stroke="#16a34a" stroke-width="6"/>
+      <circle cx="438" cy="150" r="56" fill="none" stroke="#16a34a" stroke-width="3" stroke-dasharray="4,4"/>
+      <text x="438" y="48" text-anchor="middle" font-size="14" fill="#475569" font-weight="800">GREEN TUBE</text>
+      <text x="438" y="158" text-anchor="middle" font-size="22" fill="#0f2942" font-weight="800" id="svg_gt_self">—</text>
+      <text x="438" y="268" text-anchor="middle" font-size="14" fill="#0f2942" font-weight="800">⌀ GT DIA</text>
+      <path d="M 525 150 L 582 150" stroke="#94a3b8" stroke-width="4" marker-end="url(#arrow)"/>
+      <rect x="628" y="72" width="228" height="156" rx="14" fill="none" stroke="#dc2626" stroke-width="6"/>
+      <circle cx="742" cy="150" r="46" fill="none" stroke="#dc2626" stroke-width="4"/>
+      <text x="742" y="48" text-anchor="middle" font-size="14" fill="#475569" font-weight="800">EXT DIE</text>
+      <text x="742" y="157" text-anchor="middle" font-size="18" fill="#0f2942" font-weight="800" id="svg_edd_self">—</text>
+      <text x="742" y="268" text-anchor="middle" font-size="14" fill="#0f2942" font-weight="800">⌀ DIE DIA</text>
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="5" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 Z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+    </svg>
+    <div class="lookup-banner">
+      <div class="tag na" id="sizeTag">N/A</div>
+      <div class="txt">Size code for cavity <b id="cavityRefTxt">—</b></div>
+    </div>
+  </div>
+
+  <!-- Input -->
+  <div class="card">
+    <div class="input-row">
+      <div class="input-group">
+        <label for="cavity">Cavity Diameter ⌀ (mm)</label>
+        <input type="number" id="cavity" placeholder="e.g. 30" step="any" min="0">
+      </div>
+    </div>
+    <div class="factor-suggest" id="factorSuggest">
+      ✦ Suggested factor: <span id="suggestVal">—</span> &nbsp;·&nbsp; Target TWS: <span id="suggestTws">—</span> mm
+      <button onclick="applyFactor()" style="margin-left:10px;padding:3px 10px;border:none;border-radius:6px;background:#185FA5;color:#fff;font-weight:700;font-size:12px;cursor:pointer;">Apply</button>
+    </div>
+
+    <details>
+      <summary>▸ Edit cavity → size code lookup table</summary>
+      <table class="lookup-table" id="lookupTable">
+        <thead><tr><th>Cavity ⌀ (mm)</th><th>Size Code</th><th></th></tr></thead>
+        <tbody id="lookupBody"></tbody>
+      </table>
+      <div class="table-actions">
+        <button onclick="addRow()">+ Add Row</button>
+        <button onclick="saveTable()" style="background:#16a34a;">&#128190; Save</button>
+        <button class="secondary" onclick="resetTable()">Reset Defaults</button>
+      </div>
+      <div id="saveMsg" style="display:none;margin-top:7px;padding:6px 10px;background:#ecfdf5;border:1.5px solid #86efac;border-radius:7px;font-size:12.5px;color:#15803d;font-weight:700;text-align:center;">
+        &#10003; Saved &mdash; will persist when you reopen this file
+      </div>
+    </details>
+  </div>
+
+  <!-- Results -->
+  <div class="results-title">Calculated Output</div>
+  <div class="results-grid">
+
+    <div class="result-card">
+      <div class="rlabel">GT ⌀<br>(CD × factor)</div>
+      <div class="rvalue" id="r_gt">—</div>
+      <div class="runit">mm</div>
+    </div>
+
+    <div class="result-card" id="card_gtw">
+      <div class="rlabel">Green Tube Width<br>in Mould</div>
+      <div class="rvalue" id="r_gtw">—</div>
+      <div class="runit">mm</div>
+      <div class="rtol">± 1 mm</div>
+      <div class="rrange" id="r_gtw_range"></div>
+      <div class="closest-hint" id="r_gtw_hint"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="rlabel">Ext Width<br>(TWS − 2~3 mm)</div>
+      <div class="rvalue" id="r_ew">—</div>
+      <div class="runit">mm</div>
+      <div class="rtol">± 1 mm</div>
+      <div class="rrange" id="r_ew_range"></div>
+    </div>
+
+    <div class="result-card sky-blue">
+      <div class="rlabel">Design Ext Die ⌀</div>
+      <div class="rvalue" id="r_edd">—</div>
+      <div class="runit">mm</div>
+      <div class="rtol">± 0.5 mm</div>
+      <div class="rrange" id="r_edd_range"></div>
+    </div>
+
+    <div class="result-card" id="card_tws">
+      <div class="rlabel">Tube Width<br>on Splicer</div>
+      <div class="rvalue" id="r_tws">—</div>
+      <div class="runit">mm</div>
+      <div class="rtol">± 1 mm</div>
+      <div class="rrange" id="r_tws_range"></div>
+      <div class="closest-hint" id="r_tws_hint"></div>
+    </div>
+
+    <div class="result-card">
+      <div class="rlabel">Allowable Bore ⌀<br>In-Service</div>
+      <div class="rvalue" id="r_isb">—</div>
+      <div class="runit">mm</div>
+      <div class="rtol">+0.5 mm</div>
+      <div class="rrange" id="r_isb_range"></div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Sticky factor bar -->
+<div class="factor-bar">
+  <div class="factor-bar-header">
+    <span class="name">GT Dia Factor <span class="auto-badge" id="autoBadge">AUTO</span></span>
+    <span class="val" id="factorVal">0.900</span>
+  </div>
+  <input type="range" id="factorSlider" min="0.900" max="0.930" step="0.001" value="0.900">
+  <div class="factor-range-labels"><span>0.900</span><span>0.930</span></div>
+</div>
+
+<script>
+const PI = Math.PI;
+let lookupData = [];
+
+// ── Full 1-200mm lookup tables (index 0=CD1, index 199=CD200) ───────────────
+// Method: piecewise linear interpolation between 7 known production points
+// Known: CD16→43-44, CD20→55-56, CD26→74-75, CD30→86-87,
+//        CD34→99-100, CD39→114-115, CD52→150-151
+// Derived: CD46→133-134, CD60→172-173, CD68→194-195, CD80→227-228 etc.
+// P1=green factor | P2=amber factor | P1V/P2V=display value | TLO/THI=target range
+const F1=[850,876,902,850,860,876,850,856,867,850,854,863,850,853,860,850,852,858,863,868,872,876,879,882,885,900,902,904,906,908,909,911,912,923,924,924,925,926,927,920,920,921,922,916,917,917,918,912,913,914,915,916,910,911,912,913,908,909,910,910,906,907,907,908,909,905,906,906,907,903,904,905,905,902,902,903,904,904,901,902,902,903,900,900,901,902,899,899,900,901,901,898,899,900,900,897,898,899,899,897,897,898,898,899,896,897,897,898,896,896,897,897,895,895,896,896,897,895,895,896,896,894,895,895,896,894,894,895,895,895,893,894,894,895,893,893,894,894,892,893,893,894,894,892,893,893,894,892,892,893,893,892,892,892,893,893,892,892,892,893,891,892,892,892,891,891,892,892,892,891,891,892,892,890,891,891,893,890,892,891,891,893,890,892,891,891,890,890,892,891,891,890,890,892,891,891,890,890,892,889];
+const F2=[850,876,902,850,860,876,850,856,867,850,854,863,870,876,881,886,890,894,850,852,857,861,865,869,873,888,891,893,895,897,899,901,902,913,915,916,917,918,919,912,913,914,915,908,909,910,911,906,907,908,909,910,904,905,906,907,902,903,904,905,901,902,902,903,904,900,901,902,902,899,899,900,901,897,898,899,900,900,897,898,898,899,896,897,897,898,895,896,896,897,898,895,896,896,897,894,895,895,896,893,894,895,895,896,893,894,894,895,893,893,894,894,892,893,893,894,894,892,893,893,894,892,892,893,893,891,892,892,893,893,891,892,892,892,891,891,892,892,890,891,891,892,892,890,891,891,892,890,890,891,891,889,890,890,891,891,890,890,890,891,889,890,890,890,889,889,890,890,890,889,889,890,890,889,889,889,890,888,889,889,889,890,888,889,889,895,888,887,889,889,888,888,887,889,889,888,888,889,889,888];
+const P1V=[3,6,9,11,14,17,19,22,25,27,30,33,35,38,41,43,46,49,52,55,58,61,64,67,70,74,77,80,83,86,89,92,95,99,102,105,108,111,114,116,119,122,125,127,130,133,136,138,141,144,147,150,152,155,158,161,163,166,169,172,174,177,180,183,186,188,191,194,197,199,202,205,208,210,213,216,219,222,224,227,230,233,235,238,241,244,246,249,252,255,258,260,263,266,269,271,274,277,280,282,285,288,291,294,296,299,302,305,307,310,313,316,318,321,324,327,330,332,335,338,341,343,346,349,352,354,357,360,363,366,368,371,374,377,379,382,385,388,390,393,396,399,402,404,407,410,413,415,418,421,424,426,429,432,435,438,440,443,446,449,451,454,457,460,462,465,468,471,474,476,479,482,485,487,490,493,497,498,502,504,507,511,512,516,518,521,523,526,530,532,535,537,540,544,546,549,551,554,558,559];
+const P2V=[3,6,9,11,14,17,19,22,25,27,30,33,36,39,42,45,48,51,51,54,57,60,63,66,69,73,76,79,82,85,88,91,94,98,101,104,107,110,113,115,118,121,124,126,129,132,135,137,140,143,146,149,151,154,157,160,162,165,168,171,173,176,179,182,185,187,190,193,196,198,201,204,207,209,212,215,218,221,223,226,229,232,234,237,240,243,245,248,251,254,257,259,262,265,268,270,273,276,279,281,284,287,290,293,295,298,301,304,306,309,312,315,317,320,323,326,329,331,334,337,340,342,345,348,351,353,356,359,362,365,367,370,373,376,378,381,384,387,389,392,395,398,401,403,406,409,412,414,417,420,423,425,428,431,434,437,439,442,445,448,450,453,456,459,461,464,467,470,473,475,478,481,484,486,489,492,495,497,500,503,506,509,511,514,517,523,522,524,528,531,533,536,538,542,545,547,550,553,556,558];
+const TLO=[-2,1,4,7,10,13,16,19,22,25,28,31,34,37,40,43,46,49,52,55,58,61,64,67,70,74,77,80,83,86,89,92,95,99,102,105,108,111,114,116,119,122,125,127,130,133,136,138,141,144,147,150,152,155,158,161,163,166,169,172,174,177,180,183,186,188,191,194,197,199,202,205,208,210,213,216,219,222,224,227,230,233,235,238,241,244,246,249,252,255,258,260,263,266,269,271,274,277,280,282,285,288,291,294,296,299,302,305,307,310,313,316,318,321,324,327,330,332,335,338,341,343,346,349,352,354,357,360,363,366,368,371,374,377,379,382,385,388,390,393,396,399,402,404,407,410,413,415,418,421,424,426,429,432,435,438,440,443,446,449,451,454,457,460,462,465,468,471,474,476,479,482,485,487,490,493,496,498,501,504,507,510,512,515,518,521,523,526,529,532,534,537,540,543,546,548,551,554,557,559];
+const THI=[-1,2,5,8,11,14,17,20,23,26,29,32,35,38,41,44,47,50,53,56,59,62,65,68,71,75,78,81,84,87,90,93,96,100,103,106,109,112,115,117,120,123,126,128,131,134,137,139,142,145,148,151,153,156,159,162,164,167,170,173,175,178,181,184,187,189,192,195,198,200,203,206,209,211,214,217,220,223,225,228,231,234,236,239,242,245,247,250,253,256,259,261,264,267,270,272,275,278,281,283,286,289,292,295,297,300,303,306,308,311,314,317,319,322,325,328,331,333,336,339,342,344,347,350,353,355,358,361,364,367,369,372,375,378,380,383,386,389,391,394,397,400,403,405,408,411,414,416,419,422,425,427,430,433,436,439,441,444,447,450,452,455,458,461,463,466,469,472,475,477,480,483,486,488,491,494,497,499,502,505,508,511,513,516,519,522,524,527,530,533,535,538,541,544,547,549,552,555,558,560];
+// ─────────────────────────────────────────────────────────────────────────────
+
+const defaultLookup = [
+  { cd: 16, code: "18/25c" },
+  { cd: 30, code: "N/A" },
+  { cd: 32, code: "N/A" },
+  { cd: 34, code: "N/A" },
+  { cd: 39, code: "N/A" },
+  { cd: 46, code: "N/A" },
+  { cd: 52, code: "N/A" },
+  { cd: 68, code: "N/A" }
+];
+
+function saveTable() {
+  localStorage.setItem('dieLookupData', JSON.stringify(lookupData));
+  const msg = document.getElementById('saveMsg');
+  msg.style.display = 'block';
+  setTimeout(() => { msg.style.display = 'none'; }, 3000);
+}
+
+function loadSaved() {
+  const saved = localStorage.getItem('dieLookupData');
+  if (saved) {
+    try {
+      lookupData = JSON.parse(saved);
+      renderTable();
+      return true;
+    } catch(e) {}
+  }
+  return false;
+}
+
+function loadDefaults() { lookupData = JSON.parse(JSON.stringify(defaultLookup)); renderTable(); }
+
+function renderTable() {
+  const body = document.getElementById('lookupBody');
+  body.innerHTML = '';
+  lookupData.forEach((row, idx) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="number" step="any" value="${row.cd}" onchange="updateRow(${idx},'cd',this.value)"></td>
+      <td><input type="text" value="${row.code}" onchange="updateRow(${idx},'code',this.value)"></td>
+      <td><button onclick="removeRow(${idx})" style="background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-weight:700;">×</button></td>
+    `;
+    body.appendChild(tr);
+  });
+}
+
+function updateRow(idx, field, value) { lookupData[idx][field] = field==='cd' ? parseFloat(value) : value; calculate(); }
+function addRow() { lookupData.push({cd:0,code:"N/A"}); renderTable(); }
+function removeRow(idx) { lookupData.splice(idx,1); renderTable(); calculate(); }
+function resetTable() { loadDefaults(); calculate(); }
+
+function findCode(cd) {
+  if (!cd) return null;
+  const m = lookupData.find(r => Math.abs(r.cd - cd) < 0.001);
+  return m ? m.code : "N/A";
+}
+
+// Returns P1 (green) and P2 (amber) factors + target values for any cavity
+function getCavityData(cd) {
+  const idx = Math.round(cd) - 1;
+  if (idx >= 0 && idx < F1.length) {
+    return {
+      p1Factor: F1[idx] / 1000,
+      p2Factor: F2[idx] / 1000,
+      p1Val:    P1V[idx],
+      p2Val:    P2V[idx],
+      lo: TLO[idx], hi: THI[idx]
+    };
+  }
+  // Outside 1-200: extrapolate
+  // piecewise extrapolation beyond CD200 using last segment slope (39→52)
+  const twsPred = (150.5 - 114.5) / (52 - 39) * (cd - 52) + 150.5;
+  const tlo = Math.floor(twsPred);
+  return { p1Factor: 0.959, p2Factor: 0.959, p1Val: tlo, p2Val: tlo, lo: tlo, hi: tlo+1 };
+}
+function findBestFactor(cd) { return getCavityData(cd).p1Factor; }
+
+function applyFactor() {
+  const cd = parseFloat(document.getElementById('cavity').value);
+  if (!cd) return;
+  const f = findBestFactor(cd);
+  const slider = document.getElementById('factorSlider');
+  slider.value = f.toFixed(3);
+  calculate();
+}
+
+function fmt(n) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return n.toFixed(1);
+}
+function fmtH(n) {
+  if (n === null || n === undefined || isNaN(n)) return "—";
+  return n.toFixed(1);
+}
+
+function calculate() {
+  const cd = parseFloat(document.getElementById('cavity').value);
+  const factor = parseFloat(document.getElementById('factorSlider').value);
+  document.getElementById('factorVal').textContent = factor.toFixed(3);
+
+  const sizeTag = document.getElementById('sizeTag');
+  const cavityRefTxt = document.getElementById('cavityRefTxt');
+  const suggestEl = document.getElementById('factorSuggest');
+  const autoBadge = document.getElementById('autoBadge');
+
+  // Clear all on empty
+  if (!cd || cd <= 0) {
+    ['r_gt','r_gtw','r_ew','r_edd','r_tws','r_isb'].forEach(id => document.getElementById(id).textContent = '—');
+    ['r_gtw_range','r_ew_range','r_edd_range','r_tws_range','r_isb_range'].forEach(id => document.getElementById(id).textContent = '');
+    document.getElementById('card_gtw').classList.remove('matched','closest');
+    document.getElementById('card_tws').classList.remove('matched','closest');
+    document.getElementById('r_gtw_hint').textContent = '';
+    document.getElementById('r_tws_hint').textContent = '';
+    sizeTag.textContent = 'N/A'; sizeTag.classList.add('na');
+    cavityRefTxt.textContent = '—';
+    document.getElementById('svg_cd_self').textContent = '—';
+    document.getElementById('svg_gt_self').textContent = '—';
+    document.getElementById('svg_edd_self').textContent = '—';
+    suggestEl.style.display = 'none';
+    autoBadge.style.display = 'none';
+    return;
+  }
+
+  // Declare here — used throughout the rest of calculate()
+  const bestF   = findBestFactor(cd);
+  const cavData = getCavityData(cd);
+
+  // Suggest best factor for this cavity
+  const isAutoApplied = Math.abs(cavData.p1Factor - factor) < 0.0005;
+  document.getElementById('suggestVal').textContent =
+    `×${cavData.p1Factor.toFixed(3)} (green) · ×${cavData.p2Factor.toFixed(3)} (amber)`;
+  document.getElementById('suggestTws').textContent = `${cavData.lo}–${cavData.hi}`;
+  suggestEl.style.display = 'block';
+  autoBadge.style.display = isAutoApplied ? 'inline' : 'none';
+
+  // Calculations
+
+  const gt  = cd * factor;
+  const gtw = gt * PI;
+  const ew  = gtw - 2;
+  const edd = ew / PI;
+  const tws = ew + 2.5;  // EW is always 2-3mm less than splicing width
+  const isb = edd + 1;
+
+  document.getElementById('r_gt').textContent   = fmt(gt);
+  document.getElementById('r_gtw').textContent  = fmt(gtw);
+  document.getElementById('r_gtw_range').textContent = `${fmt(gtw-1)} – ${fmt(gtw+1)} mm`;
+  document.getElementById('r_ew').textContent   = fmt(ew);
+  document.getElementById('r_ew_range').textContent = `${fmt(ew-1)} – ${fmt(ew+1)} mm`;
+  document.getElementById('r_edd').textContent  = fmtH(edd);
+  document.getElementById('r_edd_range').textContent = `${fmtH(edd-0.5)} – ${fmtH(edd+0.5)} mm`;
+  document.getElementById('r_tws').textContent  = fmt(tws);
+  document.getElementById('r_tws_range').textContent = cavData.lo !== null
+    ? `${cavData.lo} – ${cavData.hi} mm`
+    : `${fmt(tws-1)} – ${fmt(tws+1)} mm`;
+  document.getElementById('r_isb').textContent  = fmtH(isb);
+  document.getElementById('r_isb_range').textContent = `${fmtH(isb)} – ${fmtH(isb+0.5)} mm`;
+
+  // Priority 1 = GREEN: factor hits target range AND round(GTW)==round(TWS)
+  // Priority 2 = AMBER: round(GTW)==round(TWS) but outside target range
+  const gtwCard = document.getElementById('card_gtw');
+  const twsCard = document.getElementById('card_tws');
+  const gtwHint = document.getElementById('r_gtw_hint');
+  const twsHint = document.getElementById('r_tws_hint');
+  gtwCard.classList.remove('matched','closest');
+  twsCard.classList.remove('matched','closest');
+  gtwHint.textContent = ''; twsHint.textContent = '';
+
+  const gtwR = Math.round(gtw);
+  const twsR = Math.round(tws);
+  const sameWhole = (gtwR === twsR);
+  const inTarget   = (twsR >= cavData.lo && twsR <= cavData.hi);
+
+  if (sameWhole && inTarget) {
+    // P1 — GREEN
+    gtwCard.classList.add('matched');
+    twsCard.classList.add('matched');
+    document.getElementById('r_gtw').textContent = fmt(gtw);
+    document.getElementById('r_tws').textContent = fmt(tws);
+  } else if (sameWhole) {
+    // P2 — AMBER: same whole number but wrong target, still useful
+    gtwCard.classList.add('closest');
+    twsCard.classList.add('closest');
+    document.getElementById('r_gtw').textContent = fmt(gtw);
+    document.getElementById('r_tws').textContent = fmt(tws);
+    const hintTxt = `Target: ${cavData.lo}–${cavData.hi} mm · apply ×${cavData.p1Factor.toFixed(3)} for green`;
+    gtwHint.textContent = hintTxt;
+    twsHint.textContent = hintTxt;
+  } else {
+    // Neither — show amber with best factor hint
+    gtwCard.classList.add('closest');
+    twsCard.classList.add('closest');
+    const hintTxt = `Target: ${cavData.lo}–${cavData.hi} mm · best ×${cavData.p1Factor.toFixed(3)}`;
+    gtwHint.textContent = hintTxt;
+    twsHint.textContent = hintTxt;
+  }
+
+  const code = findCode(cd);
+  sizeTag.textContent = code;
+  cavityRefTxt.textContent = fmt(cd) + ' mm ⌀';
+  sizeTag.classList.toggle('na', code === "N/A");
+
+  document.getElementById('svg_cd_self').textContent = fmt(cd);
+  document.getElementById('svg_gt_self').textContent = fmt(gt);
+  document.getElementById('svg_edd_self').textContent = fmtH(edd);
+}
+
+document.getElementById('cavity').addEventListener('input', () => {
+  // Auto-apply best factor when cavity changes
+  const cd = parseFloat(document.getElementById('cavity').value);
+  if (cd && cd > 0) {
+    const bf = getCavityData(cd).p1Factor;
+    document.getElementById('factorSlider').value = bf.toFixed(3);
+  }
+  calculate();
+});
+document.getElementById('factorSlider').addEventListener('input', calculate);
+
+
+// ── AUTH ─────────────────────────────────────────────────────────────────────
+const AUTH_API = 'auth.php';
+const SESSION_KEY = 'dc_session';
+
+async function getFingerprint() {
+  const raw = [
+    navigator.language,
+    screen.width + 'x' + screen.height,
+    screen.colorDepth,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+    navigator.hardwareConcurrency,
+    navigator.platform,
+    new Date().getTimezoneOffset(),
+  ].join('|');
+  // SHA-256 fingerprint
+  const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function tryLogin() {
+  const key = document.getElementById('accessKey').value.trim();
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginErr');
+  if (key.length < 7) { err.textContent = 'Enter your full access key (XXX-XXXX)'; return; }
+  btn.disabled = true; btn.textContent = 'Checking…'; err.textContent = '';
+  try {
+    const fp = await getFingerprint();
+    const r  = await fetch(AUTH_API, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'verify', key, fingerprint: fp })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ key, fp, name: data.name }));
+      unlockApp(data.name);
+    } else {
+      err.textContent = data.msg || 'Access denied';
+      btn.disabled = false; btn.textContent = 'Unlock';
+    }
+  } catch(e) {
+    err.textContent = 'Cannot reach server — check connection';
+    btn.disabled = false; btn.textContent = 'Unlock';
+  }
+}
+
+function unlockApp(name) {
+  document.getElementById('loginGate').style.display = 'none';
+  document.getElementById('appRoot').style.display   = 'block';
+  // Show welcome name in header
+  const sub = document.querySelector('.sub');
+  if (sub && name) sub.textContent = `Welcome, ${name} · Cavity-based die dimension calculator`;
+  if (!loadSaved()) loadDefaults();
+  calculate();
+}
+
+// Auto-resume session if verified fingerprint matches stored session
+(async () => {
+  const sess = sessionStorage.getItem(SESSION_KEY);
+  if (sess) {
+    try {
+      const { key, fp } = JSON.parse(sess);
+      const curFp = await getFingerprint();
+      if (fp === curFp) {
+        // Re-verify with server (lightweight check)
+        const r = await fetch(AUTH_API, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'verify', key, fingerprint: curFp })
+        });
+        const data = await r.json();
+        if (data.ok) { unlockApp(data.name); return; }
+      }
+    } catch(e) {}
+    sessionStorage.removeItem(SESSION_KEY);
+  }
+})();
+// ─────────────────────────────────────────────────────────────────────────────
+
+</script>
+</div><!-- #appRoot -->
+
+<script>
+// Check session on load
+fetch('/api/check').then(r=>r.json()).then(d=>{
+  if(!d.authed) window.location.href='/';
+});
+// Re-check every 5 minutes
+setInterval(()=>{
+  fetch('/api/check').then(r=>r.json()).then(d=>{
+    if(!d.authed) window.location.href='/';
+  });
+}, 5*60*1000);
+function doLogout(){
+  fetch('/api/logout',{method:'POST'}).then(()=>window.location.href='/');
+}
+</script>
+</body>
+</html>
